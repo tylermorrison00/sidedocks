@@ -24,7 +24,7 @@
   "name": "side-dock",
   "private": true,
   "scripts": {
-    "pack": "electron-builder --win nsis",
+    "pack": "electron-builder --win nsis --publish never",
     "start": "electron ."
   },
   "version": "1.0.1"
