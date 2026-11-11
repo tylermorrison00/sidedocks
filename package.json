@@ -4,7 +4,15 @@
     "productName": "Side Dock",
     "win": {
       "icon": "build/icon.ico",
-      "target": "portable"
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Side Dock"
     }
   },
   "description": "Side Dock - premium edge sidebar for Windows, dark navy style, icons-only and icons+names modes",
@@ -16,8 +24,8 @@
   "name": "side-dock",
   "private": true,
   "scripts": {
-    "pack": "electron-builder --win portable",
+    "pack": "electron-builder --win nsis",
     "start": "electron ."
   },
-  "version": "1.0.0"
+  "version": "1.0.1"
 }
