@@ -512,9 +512,9 @@ ipcMain.handle('do-update', async () => {
     } catch {
       remote = JSON.parse(await fetchText(UPDATE_RAW + '?t=' + Date.now(), token));
     }
-    if (remote.version && remote.version === localVersion) {
-      return { ok: true, updated: false, version: localVersion, message: 'App is already up to date.' };
-    }
+    // Version hamesha 1.0.0 rehti hai (user order) — is liye version
+    // check par update rokna nahi hai. Update button dabate hi hamesha
+    // naya zip download karke apply karo, chahe version same hi kyun na ho.
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sidedock-update-'));
     const zipPath = path.join(tmpDir, 'update.zip');
     const extractDir = path.join(tmpDir, 'extracted');
