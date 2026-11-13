@@ -204,6 +204,10 @@
       <button class="btn primary" id="panelAddBtn" style="width:auto; padding:10px 16px;">Add</button>
     </div>
     <div id="panelTodoList" style="display:flex; flex-direction:column; gap:8px;"></div>
+    <div id="panelDoneBox" style="display:none; position:relative; margin-top:8px;">
+      <button id="panelDoneHeader" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:var(--panel); border:1px solid var(--line); color:var(--text); cursor:pointer; font-size:14px; font-weight:700;"><span id="panelDoneTitle">✓ Completed</span><span id="panelDoneArrow" style="font-size:12px;">▲</span></button>
+      <div id="panelDoneList" style="display:none; position:absolute; bottom:calc(100% + 8px); left:0; right:0; max-height:280px; overflow-y:auto; flex-direction:column; gap:8px; padding:10px; border-radius:12px; background:var(--panel); border:1px solid var(--line); z-index:20; scrollbar-width:thin;"></div>
+    </div>
     <div id="panelNotesUI" style="display:none; flex-direction:column; gap:12px;">
       <input id="panelNoteTitle" placeholder="Title..." style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); outline:none; font-size:14px; font-weight:700;">
       <textarea id="panelNoteInput" placeholder="Write a note..." style="width:100%; min-height:100px; box-sizing:border-box; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); outline:none; font-size:14px; font-family:inherit; resize:vertical;"></textarea>
@@ -345,6 +349,7 @@
       document.getElementById('panelTodoList').innerHTML = '';
       document.getElementById('panelNotesUI').style.display = 'none';
       document.getElementById('panelToolOpen').style.display = 'none';
+      document.getElementById('panelDoneBox').style.display = 'none';
       document.getElementById('panelHabitUI').style.display = 'flex';
       document.getElementById('panelBrightnessUI').style.display = 'none';
       renderPanelHabits();
@@ -354,6 +359,7 @@
       document.getElementById('panelNotesUI').style.display = 'none';
       document.getElementById('panelHabitUI').style.display = 'none';
       document.getElementById('panelToolOpen').style.display = 'none';
+      document.getElementById('panelDoneBox').style.display = 'none';
       document.getElementById('panelBrightnessUI').style.display = 'flex';
       (async () => { try { const ex = await window.sideDock.getExtraDim(); if (ex) { document.getElementById('panelExtraDimSlider').value = ex.level; document.getElementById('panelExtraDimValue').textContent = ex.level; } } catch {} })();
     } else {
@@ -362,6 +368,7 @@
       document.getElementById('panelNotesUI').style.display = 'none';
       document.getElementById('panelHabitUI').style.display = 'none';
       document.getElementById('panelBrightnessUI').style.display = 'none';
+      document.getElementById('panelDoneBox').style.display = 'none';
       const po = document.getElementById('panelToolOpen');
       po.style.display = 'flex';
       document.getElementById('panelToolDesc').textContent = tool.target || '';
@@ -397,17 +404,20 @@
     else if (item.type === 'habit') { await window.sideDock.restoreHabit(item.data); renderPanelHabits(); }
     else { await window.sideDock.restoreTodo(item.data); renderPanelTodos(); }
   });
+  let doneOpen = false;
   async function renderPanelTodos() {
     const todos = await window.sideDock.getTodos();
+    const active = todos.filter(t => !t.done);
+    const done = todos.filter(t => t.done);
     const listEl = document.getElementById('panelTodoList');
     listEl.innerHTML = '';
-    if (!todos.length) { listEl.innerHTML = '<div style="text-align:center; color:var(--muted); padding:20px 10px; font-size:14px;">No tasks yet. Add your first task above.</div>'; return; }
-    todos.forEach(todo => {
+    if (!active.length) { listEl.innerHTML = '<div style="text-align:center; color:var(--muted); padding:20px 10px; font-size:14px;">' + (done.length ? 'All tasks done. See Completed below.' : 'No tasks yet. Add your first task above.') + '</div>'; }
+    active.forEach(todo => {
       const div = document.createElement('div');
       div.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:var(--panel); border:1px solid var(--line);';
-      const cb = document.createElement('button'); cb.innerHTML = todo.done ? '<span style="color:var(--accent); font-size:16px; line-height:1;">✓</span>' : ''; cb.style.cssText = 'width:22px; height:22px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; cursor:pointer; flex-shrink:0; display:grid; place-items:center; padding:0;';
+      const cb = document.createElement('button'); cb.innerHTML = ''; cb.style.cssText = 'width:22px; height:22px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; cursor:pointer; flex-shrink:0; display:grid; place-items:center; padding:0;';
       cb.addEventListener('click', async () => { await window.sideDock.toggleTodo(todo.id); renderPanelTodos(); });
-      const span = document.createElement('span'); span.textContent = todo.text; span.style.cssText = 'flex:1; font-size:14px; word-break:break-word;' + (todo.done ? ' text-decoration:line-through; opacity:0.5;' : '');
+      const span = document.createElement('span'); span.textContent = todo.text; span.style.cssText = 'flex:1; font-size:14px; word-break:break-word;';
       const edit = document.createElement('button'); edit.innerHTML = '<img src="../assets/action-edit.png" style="width:18px; height:18px; display:block;">'; edit.style.cssText = 'background:var(--panel2); border:1px solid var(--line); border-radius:999px; cursor:pointer; padding:5px 10px; flex-shrink:0; display:grid; place-items:center;';
       edit.addEventListener('click', () => {
         const inp = document.createElement('input'); inp.value = todo.text; inp.style.cssText = 'flex:1; min-width:0; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text); outline:none; font-size:14px;';
@@ -420,7 +430,29 @@
       del.addEventListener('click', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'todo', data: todo }; await window.sideDock.deleteTodo(todo.id); renderPanelTodos(); });
       div.append(cb, span, edit, del); listEl.appendChild(div);
     });
+    // Done box: completed tasks live here, hidden from the main list.
+    const doneBox = document.getElementById('panelDoneBox');
+    const doneList = document.getElementById('panelDoneList');
+    const doneTitle = document.getElementById('panelDoneTitle');
+    const doneArrow = document.getElementById('panelDoneArrow');
+    if (!done.length) { doneBox.style.display = 'none'; doneOpen = false; doneList.style.display = 'none'; return; }
+    doneBox.style.display = 'block';
+    doneTitle.textContent = '✓ Completed  •  ' + done.length + (done.length === 1 ? ' task done' : ' tasks done');
+    doneArrow.textContent = doneOpen ? '▼' : '▲';
+    doneList.style.display = doneOpen ? 'flex' : 'none';
+    doneList.innerHTML = '';
+    done.forEach(todo => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:var(--panel2); border:1px solid var(--line);';
+      const cb = document.createElement('button'); cb.innerHTML = '<span style="color:var(--accent); font-size:16px; line-height:1;">✓</span>'; cb.title = 'Mark as not done'; cb.style.cssText = 'width:22px; height:22px; background:var(--panel); border:1px solid var(--line); border-radius:6px; cursor:pointer; flex-shrink:0; display:grid; place-items:center; padding:0;';
+      cb.addEventListener('click', async () => { await window.sideDock.toggleTodo(todo.id); renderPanelTodos(); });
+      const span = document.createElement('span'); span.textContent = todo.text; span.style.cssText = 'flex:1; font-size:14px; word-break:break-word; text-decoration:line-through; opacity:0.5;';
+      const del = document.createElement('button'); del.innerHTML = '<img src="../assets/action-bin.png" style="width:18px; height:18px; display:block;">'; del.style.cssText = 'background:var(--panel); border:1px solid var(--line); border-radius:999px; cursor:pointer; padding:5px 10px; display:grid; place-items:center;';
+      del.addEventListener('click', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'todo', data: todo }; await window.sideDock.deleteTodo(todo.id); renderPanelTodos(); });
+      div.append(cb, span, del); doneList.appendChild(div);
+    });
   }
+  document.getElementById('panelDoneHeader').addEventListener('click', () => { doneOpen = !doneOpen; renderPanelTodos(); });
 
   function todayPKTStr() { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); } catch { const x = new Date(); return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0'); } }
   function habitStreak(days) {
