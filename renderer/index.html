@@ -6,8 +6,8 @@
 <title>Side Dock</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  .dock::-webkit-scrollbar, #toolView::-webkit-scrollbar, .tool-list::-webkit-scrollbar, #railTools::-webkit-scrollbar, #panelTodoList::-webkit-scrollbar, #panelNotesList::-webkit-scrollbar, #panelNotesUI::-webkit-scrollbar { display: none; width: 0; height: 0; }
-  .dock, #toolView, .tool-list, #railTools, #panelTodoList, #panelNotesList { scrollbar-width: none; -ms-overflow-style: none; }
+  .dock::-webkit-scrollbar, #toolView::-webkit-scrollbar, .tool-list::-webkit-scrollbar, #railTools::-webkit-scrollbar, #panelTodoList::-webkit-scrollbar, #panelNotesList::-webkit-scrollbar, #panelNotesUI::-webkit-scrollbar, #panelDoneList::-webkit-scrollbar { display: none; width: 0; height: 0; }
+  .dock, #toolView, .tool-list, #railTools, #panelTodoList, #panelNotesList, #panelDoneList { scrollbar-width: none; -ms-overflow-style: none; }
   textarea::-webkit-scrollbar, input::-webkit-scrollbar { display: none; width: 0; height: 0; }
   textarea { scrollbar-width: none; -ms-overflow-style: none; }
   :root {
@@ -204,9 +204,9 @@
       <button class="btn primary" id="panelAddBtn" style="width:auto; padding:10px 16px;">Add</button>
     </div>
     <div id="panelTodoList" style="display:flex; flex-direction:column; gap:8px;"></div>
-    <div id="panelDoneBox" style="display:none; position:relative; margin-top:8px;">
-      <button id="panelDoneHeader" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:var(--panel); border:1px solid var(--line); color:var(--text); cursor:pointer; font-size:14px; font-weight:700;"><span id="panelDoneTitle">✓ Completed</span><span id="panelDoneArrow" style="font-size:12px;">▲</span></button>
-      <div id="panelDoneList" style="display:none; position:absolute; bottom:calc(100% + 8px); left:0; right:0; max-height:280px; overflow-y:auto; flex-direction:column; gap:8px; padding:10px; border-radius:12px; background:var(--panel); border:1px solid var(--line); z-index:20; scrollbar-width:thin;"></div>
+    <div id="panelDoneBox" style="display:none; position:relative; margin-top:auto;">
+      <button id="panelDoneHeader" style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:var(--panel); border:1px solid var(--line); color:var(--text); cursor:pointer; font-size:14px; font-weight:700;"><span id="panelDoneTitle">✓ Completed</span><span id="panelDoneArrow" style="display:grid; place-items:center; transition:transform .25s ease;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></span></button>
+      <div id="panelDoneList" style="display:none; position:absolute; bottom:calc(100% + 8px); left:0; right:0; max-height:280px; overflow-y:auto; flex-direction:column; gap:8px; padding:10px; border-radius:12px; background:var(--panel); border:1px solid var(--line); z-index:20; scrollbar-width:none;"></div>
     </div>
     <div id="panelNotesUI" style="display:none; flex-direction:column; gap:12px;">
       <input id="panelNoteTitle" placeholder="Title..." style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--text); outline:none; font-size:14px; font-weight:700;">
@@ -438,7 +438,7 @@
     if (!done.length) { doneBox.style.display = 'none'; doneOpen = false; doneList.style.display = 'none'; return; }
     doneBox.style.display = 'block';
     doneTitle.textContent = '✓ Completed  •  ' + done.length + (done.length === 1 ? ' task done' : ' tasks done');
-    doneArrow.textContent = doneOpen ? '▼' : '▲';
+    doneArrow.style.transform = doneOpen ? 'rotate(180deg)' : 'rotate(0deg)';
     doneList.style.display = doneOpen ? 'flex' : 'none';
     doneList.innerHTML = '';
     done.forEach(todo => {
