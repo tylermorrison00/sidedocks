@@ -35,11 +35,14 @@ jobs:
         working-directory: android
         run: ./gradlew :app:assembleRelease --no-daemon
 
+      - name: Prepare Named APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/Side.Dock.apk
+
       - name: Upload APK as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SideDock-APK
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: Side.Dock.apk
+          path: android/app/build/outputs/apk/release/Side.Dock.apk
 
       - name: Create or Update GitHub Release with APK
         uses: softprops/action-gh-release@v2
@@ -54,7 +57,7 @@ jobs:
             - **Offline Support:** Full local storage persistence.
 
             ### 📥 Download & Install:
-            Download `SideDock.apk` below and open it on your Android phone to install.
-          files: android/app/build/outputs/apk/release/app-release.apk
+            Download `Side.Dock.apk` below and open it on your Android phone to install.
+          files: android/app/build/outputs/apk/release/Side.Dock.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

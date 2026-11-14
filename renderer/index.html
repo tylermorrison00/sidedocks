@@ -852,9 +852,15 @@
 
   document.getElementById('syncGoogleBtn')?.addEventListener('click', async () => {
     try {
+      if (authMsg) authMsg.textContent = 'Connecting to Google...';
       await window.SyncEngine.signInWithGoogle();
     } catch (err) {
-      if (authMsg) authMsg.textContent = err.message || 'Google login failed';
+      const msg = err.message || String(err);
+      if (msg.includes('provider is not enabled') || msg.includes('Unsupported provider') || msg.includes('validation_failed')) {
+        if (authMsg) authMsg.innerHTML = '<span style="color:#f87171;">Google provider Supabase me OFF hai.</span><br><span style="color:var(--text); font-size:11px;">Upar <strong>Email & Password</strong> se login/signup karein (ye 100% active hai!).</span>';
+      } else {
+        if (authMsg) authMsg.textContent = msg || 'Google login failed';
+      }
     }
   });
 
