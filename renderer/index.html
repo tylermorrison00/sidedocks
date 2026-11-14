@@ -166,7 +166,82 @@
 .nl-toggle.on { background:var(--accent); border-color:var(--accent); }
 .nl-toggle.on .knob { transform:translateX(24px); }
 .nl-toggle:disabled { opacity:0.6; cursor:default; }
+
+/* Mobile Responsive Styling */
+@media (max-width: 650px) {
+  body {
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    background: var(--bg) !important;
+    overflow: hidden !important;
+  }
+  #rail, #arrowTab {
+    display: none !important;
+  }
+  body:not(.panel-open) .dock {
+    display: flex !important;
+  }
+  .dock {
+    width: 100% !important;
+    flex: 1 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    padding: 16px 16px 74px 16px !important;
+    box-shadow: none !important;
+    height: 100% !important;
+    overflow-y: auto !important;
+  }
+  #mobileNav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    justify-content: space-around;
+    align-items: center;
+    z-index: 1000;
+    padding: 0 4px;
+  }
+  .mobile-tab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 10px;
+  }
+  .mobile-tab-btn.active {
+    color: var(--accent);
+  }
+  .mobile-tab-btn span.ic {
+    font-size: 18px;
+  }
+}
+#mobileNav {
+  display: none;
+}
+.sync-indicator {
+  display: inline-grid;
+  place-items: center;
+  transition: transform .3s ease;
+}
+.sync-indicator.syncing {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="mobile-adapter.js"></script>
+<script src="supabase-sync.js"></script>
 </head>
 <body>
 <div id="arrowTab">◀</div>
@@ -177,6 +252,7 @@
       <div class="brand-name">Side Dock</div>
     </div>
     <div class="top-actions">
+      <button class="settings-btn sync-indicator" id="syncIndicatorBtn" title="Cloud Sync">☁️</button>
       <button class="settings-btn" id="closePanelBtn" title="Close panel">✕</button>
     </div>
   </div>
@@ -195,6 +271,30 @@
     <div class="settings-row">
       <label>Auto-hide</label>
       <button class="toggle" id="autohideBtn">Off</button>
+    </div>
+
+    <!-- Supabase Cloud Sync UI -->
+    <div style="margin-top:10px; padding:12px; border-radius:12px; background:var(--panel2); border:1px solid var(--line); display:flex; flex-direction:column; gap:8px;">
+      <div style="font-size:13px; font-weight:700; display:flex; align-items:center; gap:6px;">☁️ Supabase Cloud Sync</div>
+      <div id="syncLoginSection" style="display:flex; flex-direction:column; gap:8px;">
+        <input id="syncEmailInp" type="email" placeholder="Email address..." style="padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); font-size:12px; outline:none;">
+        <input id="syncPassInp" type="password" placeholder="Password..." style="padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); font-size:12px; outline:none;">
+        <div style="display:flex; gap:6px;">
+          <button class="btn primary" id="syncSignInBtn" style="flex:1; font-size:12px; justify-content:center; padding:6px;">Sign In</button>
+          <button class="btn" id="syncSignUpBtn" style="flex:1; font-size:12px; justify-content:center; padding:6px;">Sign Up</button>
+        </div>
+        <button class="btn" id="syncGoogleBtn" style="font-size:12px; justify-content:center; padding:6px; background:#fff; color:#222; border-color:#ddd;">
+          <span style="font-weight:700;">G</span> Continue with Google
+        </button>
+        <div id="syncAuthMsg" style="font-size:11px; color:var(--muted); text-align:center;"></div>
+      </div>
+      <div id="syncLoggedInSection" style="display:none; flex-direction:column; gap:8px;">
+        <div style="font-size:12px; color:var(--muted); word-break:break-all;">Logged in as:<br><strong id="accountUserEmail" style="color:var(--text);"></strong></div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn primary" id="manualSyncBtn" style="flex:1; font-size:12px; justify-content:center; padding:6px;">🔄 Sync Now</button>
+          <button class="btn" id="syncSignOutBtn" style="flex:1; font-size:12px; justify-content:center; padding:6px;">Sign Out</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -252,6 +352,14 @@
   <div class="logo"><img id="railLogoImg" src="../assets/icon-cyan.png" alt="Side Dock" onerror="this.style.display='none';"></div>
   <div id="railTools"></div>
   <button class="settings-btn" id="railSettingsBtn" title="Settings" data-tip="Settings">⚙</button>
+</div>
+
+<!-- Mobile Bottom Navigation -->
+<div id="mobileNav">
+  <button class="mobile-tab-btn active" data-tab="todo-list"><span class="ic">📝</span>Tasks</button>
+  <button class="mobile-tab-btn" data-tab="notes"><span class="ic">📄</span>Notes</button>
+  <button class="mobile-tab-btn" data-tab="habit-tracker"><span class="ic">🔥</span>Habits</button>
+  <button class="mobile-tab-btn" data-tab="settings"><span class="ic">☁️</span>Sync</button>
 </div>
 
 <script>
@@ -416,18 +524,18 @@
       const div = document.createElement('div');
       div.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:var(--panel); border:1px solid var(--line);';
       const cb = document.createElement('button'); cb.innerHTML = ''; cb.style.cssText = 'width:22px; height:22px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; cursor:pointer; flex-shrink:0; display:grid; place-items:center; padding:0;';
-      cb.addEventListener('click', async () => { await window.sideDock.toggleTodo(todo.id); renderPanelTodos(); });
+      cb.addEventListener('click', async () => { await window.sideDock.toggleTodo(todo.id); renderPanelTodos(); triggerCloudSync(); });
       const span = document.createElement('span'); span.textContent = todo.text; span.style.cssText = 'flex:1; font-size:14px; word-break:break-word;';
       const edit = document.createElement('button'); edit.innerHTML = '<img src="../assets/action-edit.png" style="width:18px; height:18px; display:block;">'; edit.style.cssText = 'background:var(--panel2); border:1px solid var(--line); border-radius:999px; cursor:pointer; padding:5px 10px; flex-shrink:0; display:grid; place-items:center;';
       edit.addEventListener('click', () => {
         const inp = document.createElement('input'); inp.value = todo.text; inp.style.cssText = 'flex:1; min-width:0; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text); outline:none; font-size:14px;';
         span.replaceWith(inp); inp.focus(); inp.select();
-        const save = async () => { const nt = inp.value.trim(); if (nt && nt !== todo.text) await window.sideDock.editTodo(todo.id, nt); renderPanelTodos(); };
+        const save = async () => { const nt = inp.value.trim(); if (nt && nt !== todo.text) { await window.sideDock.editTodo(todo.id, nt); triggerCloudSync(); } renderPanelTodos(); };
         inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') renderPanelTodos(); });
         inp.addEventListener('blur', save);
       });
       const del = document.createElement('button'); del.innerHTML = '<img src="../assets/action-bin.png" style="width:18px; height:18px; display:block;">'; del.style.cssText = 'background:var(--panel2); border:1px solid var(--line); border-radius:999px; cursor:pointer; padding:5px 10px; display:grid; place-items:center;';
-      del.addEventListener('click', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'todo', data: todo }; await window.sideDock.deleteTodo(todo.id); renderPanelTodos(); });
+      del.addEventListener('click', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'todo', data: todo }; await window.sideDock.deleteTodo(todo.id); renderPanelTodos(); triggerCloudSync(); });
       div.append(cb, span, edit, del); listEl.appendChild(div);
     });
     // Done box: completed tasks live here, hidden from the main list.
@@ -445,10 +553,10 @@
       const div = document.createElement('div');
       div.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:var(--panel2); border:1px solid var(--line);';
       const cb = document.createElement('button'); cb.innerHTML = '<span style="color:var(--accent); font-size:16px; line-height:1;">✓</span>'; cb.title = 'Mark as not done'; cb.style.cssText = 'width:22px; height:22px; background:var(--panel); border:1px solid var(--line); border-radius:6px; cursor:pointer; flex-shrink:0; display:grid; place-items:center; padding:0;';
-      cb.addEventListener('click', async () => { await window.sideDock.toggleTodo(todo.id); renderPanelTodos(); });
+      cb.addEventListener('click', async () => { await window.sideDock.toggleTodo(todo.id); renderPanelTodos(); triggerCloudSync(); });
       const span = document.createElement('span'); span.textContent = todo.text; span.style.cssText = 'flex:1; font-size:14px; word-break:break-word; text-decoration:line-through; opacity:0.5;';
       const del = document.createElement('button'); del.innerHTML = '<img src="../assets/action-bin.png" style="width:18px; height:18px; display:block;">'; del.style.cssText = 'background:var(--panel); border:1px solid var(--line); border-radius:999px; cursor:pointer; padding:5px 10px; display:grid; place-items:center;';
-      del.addEventListener('click', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'todo', data: todo }; await window.sideDock.deleteTodo(todo.id); renderPanelTodos(); });
+      del.addEventListener('click', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'todo', data: todo }; await window.sideDock.deleteTodo(todo.id); renderPanelTodos(); triggerCloudSync(); });
       div.append(cb, span, del); doneList.appendChild(div);
     });
   }
@@ -477,13 +585,13 @@
       card.style.cssText = 'display:flex; flex-direction:column; gap:8px; padding:10px 12px; border-radius:10px; background:var(--panel); border:1px solid var(--line);';
       const row = document.createElement('div'); row.style.cssText = 'display:flex; align-items:center; gap:10px;';
       const cb = document.createElement('button'); cb.innerHTML = doneToday ? '<span style="color:var(--accent); font-size:16px; line-height:1;">✓</span>' : ''; cb.style.cssText = 'width:22px; height:22px; background:var(--panel2); border:1px solid var(--line); border-radius:6px; cursor:pointer; flex-shrink:0; display:grid; place-items:center; padding:0;';
-      cb.addEventListener('click', async () => { await window.sideDock.toggleHabit(habit.id); renderPanelHabits(); });
+      cb.addEventListener('click', async () => { await window.sideDock.toggleHabit(habit.id); renderPanelHabits(); triggerCloudSync(); });
       const nameEl = document.createElement('div'); nameEl.textContent = habit.name; nameEl.style.cssText = 'flex:1; font-size:14px; font-weight:700; word-break:break-word;';
       const streakEl = document.createElement('div'); streakEl.textContent = streak > 0 ? streak + ' day streak' : ''; streakEl.style.cssText = 'font-size:12px; color:var(--accent); white-space:nowrap; display:' + (streak > 0 ? 'block' : 'none') + ';';
       const editBtn = document.createElement('button'); editBtn.innerHTML = '<img src="../assets/action-edit.png" style="width:18px; height:18px; display:block;">'; editBtn.style.cssText = 'background:var(--panel2); border:1px solid var(--line); border-radius:999px; cursor:pointer; padding:5px 10px; display:grid; place-items:center;';
-      editBtn.addEventListener('click', () => { const inp = document.createElement('input'); inp.value = habit.name; inp.style.cssText = 'flex:1; min-width:0; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text); outline:none; font-size:14px;'; nameEl.replaceWith(inp); inp.focus(); inp.select(); const save = async () => { const nt = inp.value.trim(); if (nt && nt !== habit.name) await window.sideDock.editHabit(habit.id, nt); renderPanelHabits(); }; inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') renderPanelHabits(); }); inp.addEventListener('blur', save); });
+      editBtn.addEventListener('click', () => { const inp = document.createElement('input'); inp.value = habit.name; inp.style.cssText = 'flex:1; min-width:0; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--text); outline:none; font-size:14px;'; nameEl.replaceWith(inp); inp.focus(); inp.select(); const save = async () => { const nt = inp.value.trim(); if (nt && nt !== habit.name) { await window.sideDock.editHabit(habit.id, nt); triggerCloudSync(); } renderPanelHabits(); }; inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') renderPanelHabits(); }); inp.addEventListener('blur', save); });
       const delBtn = document.createElement('button'); delBtn.innerHTML = '<img src="../assets/action-bin.png" style="width:18px; height:18px; display:block;">'; delBtn.style.cssText = 'background:var(--panel2); border:1px solid var(--line); border-radius:999px; cursor:pointer; padding:5px 10px; display:grid; place-items:center;';
-      delBtn.addEventListener('click', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'habit', data: habit }; await window.sideDock.deleteHabit(habit.id); renderPanelHabits(); });
+      delBtn.addEventListener('click', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'habit', data: habit }; await window.sideDock.deleteHabit(habit.id); renderPanelHabits(); triggerCloudSync(); });
       row.append(cb, nameEl, streakEl);
       const dots = document.createElement('div'); dots.style.cssText = 'display:grid; grid-template-columns:repeat(10, 1fr); gap:4px; width:100%;';
       for (let i = 29; i >= 0; i--) { const dd = new Date(today + 'T00:00:00Z'); dd.setUTCDate(dd.getUTCDate() - i); const k = dd.toISOString().slice(0,10); const dot = document.createElement('span'); dot.style.cssText = 'width:100%; aspect-ratio:1; border-radius:4px; background:' + (days[k] ? 'var(--accent)' : 'var(--panel2)') + '; border:1px solid var(--line); display:block;'; dots.append(dot); }
@@ -493,7 +601,7 @@
       listEl.appendChild(card);
     });
   }
-  document.getElementById('panelAddHabitBtn').addEventListener('click', async () => { const inp = document.getElementById('panelHabitInput'); const v = inp.value.trim(); if (!v) return; await window.sideDock.addHabit(v); inp.value = ''; renderPanelHabits(); });
+  document.getElementById('panelAddHabitBtn').addEventListener('click', async () => { const inp = document.getElementById('panelHabitInput'); const v = inp.value.trim(); if (!v) return; await window.sideDock.addHabit(v); inp.value = ''; renderPanelHabits(); triggerCloudSync(); });
   document.getElementById('panelHabitInput').addEventListener('keydown', async (e) => { if (e.key === 'Enter') document.getElementById('panelAddHabitBtn').click(); });
   document.getElementById('panelExtraDimSlider').addEventListener('input', async (e) => { document.getElementById('panelExtraDimValue').textContent = e.target.value; await window.sideDock.setExtraDim(parseInt(e.target.value, 10)); });
   let nightLightOn = false;
@@ -529,30 +637,40 @@
         titleEl.replaceWith(titleInp); noteBody.style.display = 'block'; noteBody.replaceWith(ta); autoGrow(); titleInp.focus();
         const saveRow = document.createElement('div'); saveRow.style.cssText = 'display:flex; gap:8px;';
         const saveBtn = document.createElement('button'); saveBtn.textContent = 'Save'; saveBtn.className = 'btn primary'; saveBtn.style.cssText = 'padding:8px 16px; width:auto;';
-        saveBtn.addEventListener('click', async () => { const nt = ta.value.trim(); const ti = titleInp.value.trim(); if (nt) await window.sideDock.editNote(note.id, { title: ti || title, text: nt }); renderPanelNotes(); });
+        saveBtn.addEventListener('click', async () => { const nt = ta.value.trim(); const ti = titleInp.value.trim(); if (nt) { await window.sideDock.editNote(note.id, { title: ti || title, text: nt }); triggerCloudSync(); } renderPanelNotes(); });
         const cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel'; cancelBtn.className = 'btn'; cancelBtn.style.cssText = 'padding:8px 16px; width:auto;';
         cancelBtn.addEventListener('click', renderPanelNotes);
         saveRow.append(saveBtn, cancelBtn); btnRow.after(saveRow);
       });
-      const delBtn = mkBtn('action-bin.png', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'note', data: note }; await window.sideDock.deleteNote(note.id); renderPanelNotes(); });
+      const delBtn = mkBtn('action-bin.png', async () => { if (!(await showDeleteConfirm())) return; lastDeleted = { type: 'note', data: note }; await window.sideDock.deleteNote(note.id); renderPanelNotes(); triggerCloudSync(); });
       btnRow.append(editBtn, delBtn, expandBtn, copyBtn);
       card.append(titleEl, btnRow, noteBody);
       listEl.appendChild(card);
     });
   }
+  let syncDebounce = null;
+  function triggerCloudSync() {
+    if (syncDebounce) clearTimeout(syncDebounce);
+    syncDebounce = setTimeout(() => {
+      if (window.SyncEngine && window.SyncEngine.getUser()) {
+        window.SyncEngine.pushToCloud();
+      }
+    }, 800);
+  }
+
   document.getElementById('panelAddNoteBtn').addEventListener('click', async () => {
     const inp = document.getElementById('panelNoteInput');
     const titleEl = document.getElementById('panelNoteTitle');
     const text = inp.value.trim(); if (!text) return;
-    await window.sideDock.addNote({ title: titleEl.value.trim(), text }); inp.value = ''; titleEl.value = ''; renderPanelNotes();
+    await window.sideDock.addNote({ title: titleEl.value.trim(), text }); inp.value = ''; titleEl.value = ''; renderPanelNotes(); triggerCloudSync();
   });
   document.getElementById('panelAddBtn').addEventListener('click', async () => {
     const inp = document.getElementById('panelTodoInput');
     const text = inp.value.trim(); if (!text) return;
-    await window.sideDock.addTodo(text); inp.value = ''; renderPanelTodos();
+    await window.sideDock.addTodo(text); inp.value = ''; renderPanelTodos(); triggerCloudSync();
   });
   document.getElementById('panelTodoInput').addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') { const inp = e.target; const text = inp.value.trim(); if (!text) return; await window.sideDock.addTodo(text); inp.value = ''; renderPanelTodos(); }
+    if (e.key === 'Enter') { const inp = e.target; const text = inp.value.trim(); if (!text) return; await window.sideDock.addTodo(text); inp.value = ''; renderPanelTodos(); triggerCloudSync(); }
   });
   document.getElementById('panelOpenToolBtn').addEventListener('click', () => { if (currentTool) window.sideDock.launchTool(currentTool); });
 
@@ -675,6 +793,93 @@
     if (!panelOpen) window.sideDock.setMouseEvents(true);
   });
   window.sideDock.getState().then(state => { mode = 'collapsed'; panelOpen = false; autoStart = state.autoStart !== false; theme = state.theme === 'light' ? 'light' : 'dark'; autoHide = state.autoHide === true; document.getElementById('autohideBtn').textContent = autoHide ? 'On' : 'Off'; tools = state.tools || []; document.getElementById('autoBtn').textContent = autoStart ? 'On' : 'Off'; applyTheme(); render(); window.sideDock.setMouseEvents(true); });
+
+  // Mobile Nav tab switching
+  document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mobile-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      if (tab === 'settings') {
+        showSettingsView();
+      } else {
+        const found = tools.find(t => t.id === tab || t.target === tab);
+        if (found) showToolView(found);
+      }
+    });
+  });
+
+  // Topbar Sync button
+  const syncBtn = document.getElementById('syncIndicatorBtn');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', () => {
+      showSettingsView();
+      const loginSec = document.getElementById('syncLoginSection');
+      if (loginSec) loginSec.scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+
+  // Supabase Auth buttons
+  const authMsg = document.getElementById('syncAuthMsg');
+  const getAuthCreds = () => ({
+    email: (document.getElementById('syncEmailInp')?.value || '').trim(),
+    password: (document.getElementById('syncPassInp')?.value || '').trim()
+  });
+
+  document.getElementById('syncSignInBtn')?.addEventListener('click', async () => {
+    const { email, password } = getAuthCreds();
+    if (!email || !password) { if (authMsg) authMsg.textContent = 'Please enter email and password'; return; }
+    if (authMsg) authMsg.textContent = 'Signing in...';
+    try {
+      await window.SyncEngine.signInWithEmail(email, password);
+      if (authMsg) authMsg.textContent = 'Signed in successfully!';
+    } catch (err) {
+      if (authMsg) authMsg.textContent = err.message || 'Sign in failed';
+    }
+  });
+
+  document.getElementById('syncSignUpBtn')?.addEventListener('click', async () => {
+    const { email, password } = getAuthCreds();
+    if (!email || !password) { if (authMsg) authMsg.textContent = 'Please enter email and password'; return; }
+    if (authMsg) authMsg.textContent = 'Creating account...';
+    try {
+      await window.SyncEngine.signUpWithEmail(email, password);
+      if (authMsg) authMsg.textContent = 'Account created & logged in!';
+    } catch (err) {
+      if (authMsg) authMsg.textContent = err.message || 'Sign up failed';
+    }
+  });
+
+  document.getElementById('syncGoogleBtn')?.addEventListener('click', async () => {
+    try {
+      await window.SyncEngine.signInWithGoogle();
+    } catch (err) {
+      if (authMsg) authMsg.textContent = err.message || 'Google login failed';
+    }
+  });
+
+  document.getElementById('manualSyncBtn')?.addEventListener('click', async () => {
+    await window.SyncEngine.pullFromCloud();
+    await window.SyncEngine.pushToCloud();
+  });
+
+  document.getElementById('syncSignOutBtn')?.addEventListener('click', async () => {
+    await window.SyncEngine.signOut();
+  });
+
+  window.onSyncCompleted = () => {
+    if (currentTool) {
+      showToolView(currentTool);
+    }
+  };
+
+  // If on mobile screen, default to Tasks
+  if (window.innerWidth <= 650) {
+    setTimeout(() => {
+      const todoTool = tools.find(t => t.id === 'todo-list') || tools[0];
+      if (todoTool) showToolView(todoTool);
+    }, 150);
+  }
 </script>
 </body>
 </html>
