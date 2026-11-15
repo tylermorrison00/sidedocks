@@ -77,19 +77,12 @@
         }
         return data;
       }
-      const redirectTo = window.location.origin + window.location.pathname;
-      const { data, error } = await sb.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo }
-      });
-      if (error) throw error;
-      return data;
-    },
+      
 
     // Called when the app is reopened via sidedock://auth-callback after
     // Google login in the system browser. Exchanges the returned code (PKCE)
     // or tokens for a session.
-    async handleAuthCallback(url) {
+    const { data, error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: 'sidedock://auth-callback', skipBrowserRedirect: true, queryParams: { access_type: 'offline', prompt: 'consent' } } }); if (error) throw error; if (!data || !data.url) throw new Error('Google login did not return a sign-in URL'); if (window.sideDock && window.sideDock.openExternal) { await window.sideDock.openExternal(data.url); } else { window.open(data.url, '_blank'); } return data; }, async handleAuthCallback(url) {
       const sb = getClient();
       if (!sb || !url) return false;
       try {
@@ -319,7 +312,7 @@
   window.addEventListener('sidedock-auth', (e) => {
     SyncEngine.handleAuthCallback(e.detail);
   });
-  window.__sidedockAuthCallback = (url) => SyncEngine.handleAuthCallback(url);
+  if (window.sideDock && window.sideDock.onAuthCallback) { window.sideDock.onAuthCallback((url) => SyncEngine.handleAuthCallback(url)); } window.__sidedockAuthCallback = (url) => SyncEngine.handleAuthCallback(url);
 
   // Auto-init on page load
   window.addEventListener('DOMContentLoaded', () => {
