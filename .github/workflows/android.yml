@@ -33,8 +33,12 @@ jobs:
       - name: Restore Signing Keystore (if secret set)
         run: |
           if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
-            echo "KEYSTORE_PATH=$PWD/android/app/release.keystore" >> $GITHUB_ENV
+            if echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore 2>/dev/null; then
+              echo "KEYSTORE_PATH=$PWD/android/app/release.keystore" >> $GITHUB_ENV
+            else
+              echo "::warning::ANDROID_KEYSTORE_BASE64 secret is not valid base64 — APK will be debug-signed."
+              rm -f android/app/release.keystore
+            fi
           else
             echo "::warning::ANDROID_KEYSTORE_BASE64 secret not set — APK will be debug-signed and cannot update over a differently-signed install."
           fi
