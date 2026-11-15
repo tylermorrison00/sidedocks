@@ -30,11 +30,16 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = if ((project.findProperty("keystorePath") as String? ?: System.getenv("ANDROID_KEYSTORE_PATH"))?.let { !it.isBlank() && file(it).isFile } == true) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            // NEVER fall back to debug signing: a debug-signed release APK
+            // cannot install over the user's release-signed app
+            // ("package conflicts with an existing package"). Fail loudly
+            // instead so CI never ships a wrongly-signed APK again.
+            val ksPath = (project.findProperty("keystorePath") as String?)
+                ?: System.getenv("ANDROID_KEYSTORE_PATH")
+            if (ksPath.isNullOrBlank() || !file(ksPath).isFile) {
+                throw GradleException("Release keystore missing at '$ksPath' — check ANDROID_KEYSTORE_BASE64 secret in GitHub Actions.")
             }
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             applicationIdSuffix = ""
