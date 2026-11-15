@@ -1,17 +1,12 @@
 package com.sidedock.app
 
 import android.annotation.SuppressLint
-import android.app.DownloadManager
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.provider.Settings
 import android.view.View
 import android.webkit.CookieManager
@@ -31,8 +26,6 @@ import java.io.File
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
-    private var downloadId: Long = -1L
-    private var downloadReceiver: BroadcastReceiver? = null
     private var pendingAuthUrl: String? = null
 
     inner class JsBridge {
@@ -260,54 +253,43 @@ class MainActivity : AppCompatActivity() {
             }
             return
         }
-        try {
-            val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle("Side Dock update")
-                .setDescription("Downloading latest APK...")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Side.Dock.apk")
-                .setMimeType("application/vnd.android.package-archive")
-                .setAllowedOverMetered(true)
-                .setAllowedOverRoaming(true)
-            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            downloadId = dm.enqueue(request)
-            Toast.makeText(this, "Downloading update...", Toast.LENGTH_SHORT).show()
-
-            if (downloadReceiver == null) {
-                downloadReceiver = object : BroadcastReceiver() {
-                    override fun onReceive(context: Context?, intent: Intent?) {
-                        val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) ?: -1L
-                        if (id == downloadId) {
-                            installDownloadedApk()
-                        }
-                    }
+        // Direct download into the app cache (no DownloadManager): the old
+        // DownloadManager flow could leave a stale/partial Side.Dock.apk in
+        // Downloads, and the installer then failed on that stale file.
+        Toast.makeText(this, "Downloading update...", Toast.LENGTH_SHORT).show()
+        Thread {
+            try {
+                val apkFile = File(cacheDir, "Side.Dock.apk")
+                if (apkFile.exists()) apkFile.delete()
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.instanceFollowRedirects = true
+                conn.connectTimeout = 30000
+                conn.readTimeout = 60000
+                conn.setRequestProperty("User-Agent", "SideDock-Android")
+                if (conn.responseCode !in 200..299) {
+                    runOnUiThread { Toast.makeText(this, "Download failed (server error ${conn.responseCode}). Tap Update again.", Toast.LENGTH_LONG).show() }
+                    return@Thread
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    registerReceiver(
-                        downloadReceiver,
-                        IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-                        Context.RECEIVER_EXPORTED
-                    )
-                } else {
-                    @Suppress("UnspecifiedRegisterReceiverFlag")
-                    registerReceiver(
-                        downloadReceiver,
-                        IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
-                    )
+                conn.inputStream.use { input ->
+                    apkFile.outputStream().use { output -> input.copyTo(output) }
                 }
+                if (!apkFile.exists() || apkFile.length() < 1_000_000) {
+                    runOnUiThread { Toast.makeText(this, "Download incomplete. Tap Update again.", Toast.LENGTH_LONG).show() }
+                    return@Thread
+                }
+                runOnUiThread { installDownloadedApk(apkFile) }
+            } catch (e: Exception) {
+                runOnUiThread { Toast.makeText(this, "Download failed: ${e.message}. Tap Update again.", Toast.LENGTH_LONG).show() }
             }
-        } catch (e: Exception) {
-            Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        }.start()
     }
 
-    private fun installDownloadedApk() {
+    private fun installDownloadedApk(apkFile: File) {
         try {
-            val apkFile = File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                "Side.Dock.apk"
-            )
-            if (!apkFile.exists()) return
+            if (!apkFile.exists() || apkFile.length() < 1_000_000) {
+                Toast.makeText(this, "Download incomplete. Tap Update again.", Toast.LENGTH_LONG).show()
+                return
+            }
             val uri = FileProvider.getUriForFile(
                 this,
                 "com.sidedock.app.fileprovider",
@@ -322,13 +304,5 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Install failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
-    }
-
-    override fun onDestroy() {
-        downloadReceiver?.let {
-            try { unregisterReceiver(it) } catch (e: Exception) { }
-            downloadReceiver = null
-        }
-        super.onDestroy()
     }
 }
