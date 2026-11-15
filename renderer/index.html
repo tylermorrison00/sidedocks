@@ -558,6 +558,15 @@
     logoEl.innerHTML = '<img id="logoImg" src="../assets/icon-cyan.png" alt="Side Dock">';
     applyTheme();
   }
+  function showHomeView() {
+    currentTool = null;
+    document.getElementById('settingsPanel').classList.remove('open');
+    document.getElementById('toolView').style.display = 'none';
+    document.getElementById('toolList').style.display = 'flex';
+    document.querySelector('.brand-name').textContent = 'Side Dock';
+    const logoEl = document.querySelector('.brand .logo');
+    logoEl.innerHTML = '<img id="logoImg" src="../assets/icon-cyan.png" alt="Side Dock">';
+  }
   function showToolView(tool) {
     currentTool = tool;
     document.getElementById('settingsPanel').classList.remove('open');
@@ -1129,6 +1138,15 @@
     document.getElementById('allToolsSearch').addEventListener('input', (e) => renderAllTools(e.target.value));
     document.getElementById('allToolsGear').addEventListener('click', () => openToolFull(null));
     document.getElementById('closePanelBtn').addEventListener('click', () => { closeToolFull(); });
+    // Edge tab rail (over other apps) asked the app to open a tool.
+    window.addEventListener('sidedock-open-tool', (e) => {
+      const k = e.detail;
+      document.body.classList.add('tool-open');
+      if (k === 'all-tools') { showHomeView(); return; }
+      if (k === 'sync' || k === 'settings') { showSettingsView(); return; }
+      const found = tools.find(t => t.id === k || t.target === k);
+      if (found) showToolView(found);
+    });
     // Edge tab over all apps (system overlay, on/off from Settings)
     const edgeRow = document.getElementById('edgeTabRow');
     const edgeBtn = document.getElementById('edgeTabBtn');
