@@ -11,15 +11,50 @@ android {
         applicationId = "com.sidedock.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
+        // versionCode comes from CI (-PversionCode=<run number>) so every
+        // new APK is newer than the installed one and Android lets it
+        // install over the old build. Local builds default to 1.
+        versionCode = (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Release signing MUST use one stable keystore, or Android refuses the
+    // update ("signatures do not match"): GitHub runners generate a fresh
+    // debug keystore on every run, so signing with debug here would make
+    // every CI build uninstallable over the previous one. The CI workflow
+    // decodes the laptop's keystore from the ANDROID_KEYSTORE_BASE64 repo
+    // secret and passes its path/passwords as -P properties; without them
+    // the build falls back to debug signing (first install only — an
+    // update over a differently-signed APK will still be rejected).
+    signingConfigs {
+        create("release") {
+            val ksPath = (project.findProperty("keystorePath") as String?)
+                ?: System.getenv("ANDROID_KEYSTORE_PATH")
+            val ksPass = (project.findProperty("keystorePassword") as String?)
+                ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            val keyAliasVal = (project.findProperty("keyAlias") as String?)
+                ?: System.getenv("ANDROID_KEY_ALIAS")
+            val keyPassVal = (project.findProperty("keyPassword") as String?)
+                ?: System.getenv("ANDROID_KEY_PASSWORD")
+            if (ksPath != null && file(ksPath).exists()) {
+                storeFile = file(ksPath)
+                storePassword = ksPass
+                keyAlias = keyAliasVal
+                keyPassword = keyPassVal
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if ((project.findProperty("keystorePath") as String?
+                    ?: System.getenv("ANDROID_KEYSTORE_PATH"))?.let { file(it).exists() } == true) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
         debug {
             applicationIdSuffix = ""
