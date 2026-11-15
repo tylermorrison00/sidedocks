@@ -306,7 +306,7 @@ if (!gotLock) {
   });
 }
 let pendingAuthUrl = null; function handleAuthUrl(url) { if (!url || !String(url).startsWith('sidedock://')) return; if (win && win.webContents) { try { win.webContents.send('sidedock-auth', url); return; } catch {} } pendingAuthUrl = url; } if (!app.isDefaultProtocolClient('sidedock')) { try { app.setAsDefaultProtocolClient('sidedock'); } catch {} } for (const a of process.argv.slice(1)) { if (String(a).startsWith('sidedock://')) pendingAuthUrl = a; } app.whenReady().then(createWindow);
-app.whenReady().then(createWindow); app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (!win) createWindow(); });
 
 ipcMain.handle('get-state', () => ({ mode, autoStart, theme, autoHide, hidden, panelOpen, hasToken: !!loadToken(), tools: loadTools() }));
