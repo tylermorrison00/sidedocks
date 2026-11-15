@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('sideDock', {
   onAutoHideArrowOnly: (cb) => ipcRenderer.on('auto-hide-arrow-only', cb),
   setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
   setAutostart: (on) => ipcRenderer.invoke('set-autostart', on),
-  doUpdate: () => ipcRenderer.invoke('do-update'),
+  doUpdate: () => ipcRenderer.invoke('do-update'), openExternal: (url) => ipcRenderer.invoke('open-external', url), onAuthCallback: (cb) => ipcRenderer.on('sidedock-auth', (_e, url) => cb(url)),
   setGithubToken: (token) => ipcRenderer.invoke('set-github-token', token),
   clearGithubToken: () => ipcRenderer.invoke('clear-github-token'),
   addTool: (tool) => ipcRenderer.invoke('add-tool', tool),
