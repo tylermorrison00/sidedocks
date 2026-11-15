@@ -1,19 +1,92 @@
 package com.sidedock.app
 
 import android.annotation.SuppressLint
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.DownloadListener
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
+import org.json.JSONObject
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
+    private var downloadId: Long = -1L
+    private var downloadReceiver: BroadcastReceiver? = null
+    private var pendingAuthUrl: String? = null
+
+    inner class JsBridge {
+        @JavascriptInterface
+        fun getVersionCode(): Int {
+            return try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0)).versionCode
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageManager.getPackageInfo(packageName, 0).versionCode
+                }
+            } catch (e: Exception) {
+                1
+            }
+        }
+
+        @JavascriptInterface
+        fun openExternal(url: String) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (e: Exception) {
+                Toast.makeText(this@MainActivity, "Could not open browser", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        @JavascriptInterface
+        fun canInstallPackages(): Boolean {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                packageManager.canRequestPackageInstalls()
+            } else {
+                true
+            }
+        }
+
+        @JavascriptInterface
+        fun openInstallSettings() {
+            try {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            } catch (e: Exception) {
+                startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES))
+            }
+        }
+
+        @JavascriptInterface
+        fun downloadApk(url: String) {
+            downloadAndInstall(url)
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,12 +115,63 @@ class MainActivity : AppCompatActivity() {
             cookieManager.setAcceptCookie(true)
             cookieManager.setAcceptThirdPartyCookies(this, true)
 
+            addJavascriptInterface(JsBridge(), "SideDockAndroid")
+
             webChromeClient = WebChromeClient()
             webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                    val url = request?.url?.toString() ?: return false
+                    // Supabase OAuth return: sidedock://auth-callback
+                    if (request.url.scheme == "sidedock") {
+                        handleAuthCallback(url)
+                        return true
+                    }
+                    // Direct APK links: download + install instead of showing binary in WebView
+                    if (url.lowercase().endsWith(".apk")) {
+                        downloadAndInstall(url)
+                        return true
+                    }
                     return false
                 }
+
+                @Deprecated("Deprecated in Java")
+                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                    if (url == null) return false
+                    if (url.startsWith("sidedock://")) {
+                        handleAuthCallback(url)
+                        return true
+                    }
+                    if (url.lowercase().endsWith(".apk")) {
+                        downloadAndInstall(url)
+                        return true
+                    }
+                    return false
+                }
+
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    pendingAuthUrl?.let { authUrl ->
+                        pendingAuthUrl = null
+                        dispatchAuthCallback(authUrl)
+                    }
+                }
             }
+
+            setDownloadListener(object : DownloadListener {
+                override fun onDownloadStart(
+                    url: String?, userAgent: String?, contentDisposition: String?,
+                    mimetype: String?, contentLength: Long
+                ) {
+                    if (url != null && url.lowercase().endsWith(".apk")) {
+                        downloadAndInstall(url)
+                    } else if (url != null) {
+                        try {
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        } catch (e: Exception) {
+                        }
+                    }
+                }
+            })
         }
 
         setContentView(webView)
@@ -62,6 +186,134 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        // Deep link launched the app (e.g. sidedock://auth-callback after Google login)
+        intent?.data?.toString()?.let { data ->
+            if (data.startsWith("sidedock://")) {
+                pendingAuthUrl = data
+            }
+        }
+
         webView.loadUrl("file:///android_asset/renderer/index.html")
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent?.data?.toString()?.let { data ->
+            if (data.startsWith("sidedock://")) {
+                handleAuthCallback(data)
+            }
+        }
+    }
+
+    private fun handleAuthCallback(url: String) {
+        // WebView may not have finished loading yet; queue it for onPageFinished.
+        if (!::webView.isInitialized) {
+            pendingAuthUrl = url
+            return
+        }
+        webView.post {
+            // If the page is still the blank initial load, wait for onPageFinished.
+            if (webView.url == null) {
+                pendingAuthUrl = url
+            } else {
+                dispatchAuthCallback(url)
+            }
+        }
+    }
+
+    private fun dispatchAuthCallback(url: String) {
+        val js = "window.dispatchEvent(new CustomEvent('sidedock-auth',{detail:${JSONObject.quote(url)}}))"
+        webView.evaluateJavascript(js, null)
+    }
+
+    private fun downloadAndInstall(url: String) {
+        // Android 8+: the app must be allowed to install unknown apps.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+            Toast.makeText(
+                this,
+                "Allow 'Install unknown apps' for Side Dock, then tap Update again",
+                Toast.LENGTH_LONG
+            ).show()
+            try {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:$packageName")
+                    )
+                )
+            } catch (e: Exception) {
+            }
+            return
+        }
+        try {
+            val request = DownloadManager.Request(Uri.parse(url))
+                .setTitle("Side Dock update")
+                .setDescription("Downloading latest APK...")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Side.Dock.apk")
+                .setMimeType("application/vnd.android.package-archive")
+                .setAllowedOverMetered(true)
+                .setAllowedOverRoaming(true)
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            downloadId = dm.enqueue(request)
+            Toast.makeText(this, "Downloading update...", Toast.LENGTH_SHORT).show()
+
+            if (downloadReceiver == null) {
+                downloadReceiver = object : BroadcastReceiver() {
+                    override fun onReceive(context: Context?, intent: Intent?) {
+                        val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) ?: -1L
+                        if (id == downloadId) {
+                            installDownloadedApk()
+                        }
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(
+                        downloadReceiver,
+                        IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                        Context.RECEIVER_EXPORTED
+                    )
+                } else {
+                    @Suppress("UnspecifiedRegisterReceiverFlag")
+                    registerReceiver(
+                        downloadReceiver,
+                        IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun installDownloadedApk() {
+        try {
+            val apkFile = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                "Side.Dock.apk"
+            )
+            if (!apkFile.exists()) return
+            val uri = FileProvider.getUriForFile(
+                this,
+                "com.sidedock.app.fileprovider",
+                apkFile
+            )
+            val install = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(install)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Install failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun onDestroy() {
+        downloadReceiver?.let {
+            try { unregisterReceiver(it) } catch (e: Exception) { }
+            downloadReceiver = null
+        }
+        super.onDestroy()
     }
 }
