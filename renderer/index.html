@@ -241,6 +241,9 @@
   body.mobile-edge #edgeGrab {
     display: block;
   }
+  body.mobile-edge.tool-open #edgeGrab {
+    display: none;
+  }
   body.mobile-edge #edgeScrim.show {
     display: block;
   }
@@ -256,8 +259,9 @@
   }
   #edgeStrip {
     position: absolute; right: 0; top: 50%; transform: translateY(-50%);
-    width: 6px; height: 120px; background: var(--panel2);
-    border: 1px solid var(--line); border-right: 0; border-radius: 3px 0 0 3px;
+    width: 6px; height: 120px; background: var(--accent);
+    border: 1px solid var(--accent); border-right: 0; border-radius: 3px 0 0 3px;
+    box-shadow: 0 0 10px var(--accent);
   }
   #edgeScrim {
     position: fixed; inset: 0; z-index: 1999; background: transparent;
@@ -1019,6 +1023,12 @@
   const isMobileEdge = window.matchMedia('(max-width: 650px) and (pointer: coarse)').matches;
   if (isMobileEdge) {
     document.body.classList.add('mobile-edge');
+    // App khulte hi pehle jaisa full panel (Tasks) dikhe — kaali screen nahi.
+    document.body.classList.add('tool-open');
+    setTimeout(() => {
+      const firstTool = tools.find(t => t.id === 'todo-list') || tools[0];
+      if (firstTool) showToolView(firstTool);
+    }, 150);
     const grab = document.getElementById('edgeGrab');
     const rail = document.getElementById('edgeRail');
     const sheet = document.getElementById('allToolsSheet');
