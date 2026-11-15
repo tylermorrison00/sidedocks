@@ -92,6 +92,35 @@ class MainActivity : AppCompatActivity() {
         fun downloadApk(url: String) {
             downloadAndInstall(url)
         }
+
+        // Floating edge tab over all apps (Settings toggle).
+        @JavascriptInterface
+        fun hasOverlayPermission(): Boolean {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Settings.canDrawOverlays(this@MainActivity)
+            } else {
+                true
+            }
+        }
+
+        @JavascriptInterface
+        fun openOverlaySettings() {
+            try {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            } catch (e: Exception) {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+            }
+        }
+
+        @JavascriptInterface
+        fun isEdgeTabEnabled(): Boolean = EdgeTabService.isEnabled(this@MainActivity)
+
+        @JavascriptInterface
+        fun setEdgeTabEnabled(enabled: Boolean): Boolean {
+            if (enabled && !hasOverlayPermission()) return false
+            EdgeTabService.setEnabled(this@MainActivity, enabled)
+            return true
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
