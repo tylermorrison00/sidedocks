@@ -51,6 +51,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun fetchUrl(url: String): String {
+            return try {
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.instanceFollowRedirects = true
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
+                conn.setRequestProperty("User-Agent", "SideDock-Android")
+                if (conn.responseCode in 200..299) {
+                    conn.inputStream.bufferedReader().use { it.readText() }
+                } else ""
+            } catch (e: Exception) { "" }
+        }
+        @JavascriptInterface
         fun openExternal(url: String) {
             try {
                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -103,6 +116,8 @@ class MainActivity : AppCompatActivity() {
                 databaseEnabled = true
                 allowFileAccess = true
                 allowContentAccess = true
+                allowFileAccessFromFileURLs = true
+                allowUniversalAccessFromFileURLs = true
                 loadWithOverviewMode = true
                 useWideViewPort = true
                 cacheMode = WebSettings.LOAD_DEFAULT
