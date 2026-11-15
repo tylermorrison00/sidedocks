@@ -203,15 +203,31 @@
   // The GitHub release publishes version.json next to Side.Dock.apk.
   // versionCode rises on every CI build, so Android accepts the new APK
   // over the installed one (same versionCode used to block the install).
-  const UPDATE_CHECK_URL = 'https://github.com/tylermorrison00/sidedocks/releases/download/mobile-v1.0.0/version.json';
+    const UPDATE_CHECK_URLS = [
+      'https://raw.githubusercontent.com/tylermorrison00/sidedocks/main/version.json',
+      'https://github.com/tylermorrison00/sidedocks/releases/download/mobile-v1.0.0/version.json'
+      ];
   const APK_DOWNLOAD_URL = 'https://github.com/tylermorrison00/sidedocks/releases/download/mobile-v1.0.0/Side.Dock.apk';
   window.sideDock.doUpdate = async () => {
     try {
-      const res = await fetch(UPDATE_CHECK_URL + '?v=' + Date.now(), { cache: 'no-store' });
-      if (!res.ok) {
+      let latest = null;
+      if (window.SideDockAndroid && window.SideDockAndroid.fetchUrl) {
+        try {
+          const text = window.SideDockAndroid.fetchUrl(UPDATE_CHECK_URLS[1]);
+          if (text) latest = JSON.parse(text);
+        } catch {}
+      }
+      if (!latest) {
+        for (const url of UPDATE_CHECK_URLS) {
+          try {
+            const res = await fetch(url + '?v=' + Date.now(), { cache: 'no-store' });
+            if (res.ok) { latest = await res.json(); break; }
+          } catch {}
+        }
+      }
+      if (!latest) {
         return { ok: false, message: 'Update check failed. Download the latest APK from the website.' };
       }
-      const latest = await res.json();
       const current = (window.SideDockAndroid && window.SideDockAndroid.getVersionCode)
         ? window.SideDockAndroid.getVersionCode()
         : 0;
