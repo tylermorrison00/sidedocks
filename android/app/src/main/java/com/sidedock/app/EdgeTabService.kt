@@ -31,6 +31,7 @@ class EdgeTabService : Service() {
     private var stripView: View? = null
     private var railView: View? = null
     private var scrimView: View? = null
+    private var floatingWindow: FloatingToolWindow? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -239,11 +240,10 @@ class EdgeTabService : Service() {
 
     private fun openTool(tool: String) {
         hideRail()
-        val open = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            putExtra("open_tool", tool)
-        }
-        startActivity(open)
+        // Open the tool in a small movable floating window over the
+        // current app — not the full app (like the phone's built-in sidebar).
+        if (floatingWindow == null) floatingWindow = FloatingToolWindow(this)
+        floatingWindow?.show(tool)
     }
 
     private fun hideRail() {
@@ -257,6 +257,8 @@ class EdgeTabService : Service() {
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
+        floatingWindow?.close()
+        floatingWindow = null
         stripView?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
         stripView = null
         railView?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
