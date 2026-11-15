@@ -377,6 +377,10 @@
       <label>Auto-hide</label>
       <button class="toggle" id="autohideBtn">Off</button>
     </div>
+    <div class="settings-row" id="edgeTabRow" style="display:none;">
+      <label>Edge tab (all apps)</label>
+      <button class="toggle" id="edgeTabBtn">Off</button>
+    </div>
 
     <!-- Supabase Cloud Sync UI -->
     <div style="margin-top:10px; padding:12px; border-radius:12px; background:var(--panel2); border:1px solid var(--line); display:flex; flex-direction:column; gap:8px;">
@@ -1115,6 +1119,27 @@
     document.getElementById('allToolsSearch').addEventListener('input', (e) => renderAllTools(e.target.value));
     document.getElementById('allToolsGear').addEventListener('click', () => openToolFull(null));
     document.getElementById('closePanelBtn').addEventListener('click', () => { closeToolFull(); });
+    // Edge tab over all apps (system overlay, on/off from Settings)
+    const edgeRow = document.getElementById('edgeTabRow');
+    const edgeBtn = document.getElementById('edgeTabBtn');
+    if (edgeRow && edgeBtn && window.SideDockAndroid) {
+      edgeRow.style.display = 'flex';
+      const syncEdgeBtn = () => { try { edgeBtn.textContent = window.SideDockAndroid.isEdgeTabEnabled() ? 'On' : 'Off'; } catch {} };
+      syncEdgeBtn();
+      edgeBtn.addEventListener('click', () => {
+        try {
+          const wantOn = edgeBtn.textContent !== 'On';
+          if (wantOn && !window.SideDockAndroid.hasOverlayPermission()) {
+            window.SideDockAndroid.openOverlaySettings();
+            const st = document.getElementById('updateStatus');
+            if (st) st.textContent = 'Allow "Display over other apps" for Side Dock, then turn Edge tab on again.';
+            return;
+          }
+          window.SideDockAndroid.setEdgeTabEnabled(wantOn);
+          syncEdgeBtn();
+        } catch {}
+      });
+    }
   }
 </script>
 </body>
