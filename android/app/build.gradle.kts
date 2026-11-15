@@ -37,7 +37,11 @@ android {
                 ?: System.getenv("ANDROID_KEY_ALIAS")
             val keyPassVal = (project.findProperty("keyPassword") as String?)
                 ?: System.getenv("ANDROID_KEY_PASSWORD")
-            if (ksPath != null && file(ksPath).exists()) {
+            // NOTE: an empty keystorePath ("") must NOT count as a keystore:
+            // file("") resolves to the project dir, which exists, so a plain
+            // exists() check wrongly takes the release path and the build
+            // fails signing with a directory. Hence isNullOrBlank() + isFile().
+            if (!ksPath.isNullOrBlank() && file(ksPath).isFile) {
                 storeFile = file(ksPath)
                 storePassword = ksPass
                 keyAlias = keyAliasVal
@@ -50,7 +54,7 @@ android {
         release {
             isMinifyEnabled = false
             signingConfig = if ((project.findProperty("keystorePath") as String?
-                    ?: System.getenv("ANDROID_KEYSTORE_PATH"))?.let { file(it).exists() } == true) {
+                    ?: System.getenv("ANDROID_KEYSTORE_PATH"))?.let { !it.isBlank() && file(it).isFile } == true) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
