@@ -36,7 +36,7 @@ jobs:
             if echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore 2>/dev/null; then
               echo "KEYSTORE_PATH=$PWD/android/app/release.keystore" >> $GITHUB_ENV
             else
-              echo "::warning::ANDROID_KEYSTORE_BASE64 secret is not valid base64 — APK will be debug-signed."
+              echo "::warning::ANDROID_KEYSTORE_BASE64 secret is not valid base64 — falling back to debug signing, uninstall old app first."
               rm -f android/app/release.keystore
             fi
           else
