@@ -17,8 +17,8 @@ const path = require('path');
 // update download karte waqt bheja jata hai. Token read-only rakho, sirf
 // side-dock repo ke liye, taake leak hone par bhi sirf ye repo parha ja sake.
 // Token na ho aur repo private ho to Update button seedha yehi batayega.
-const UPDATE_RAW = 'https://raw.githubusercontent.com/tylermorrison00/side-dock/main/package.json';
-const UPDATE_ZIP_API = 'https://api.github.com/repos/tylermorrison00/side-dock/zipball/main';
+const UPDATE_RAW = 'https://raw.githubusercontent.com/tylermorrison00/sidedocks/main/package.json';
+const UPDATE_ZIP_API = 'https://api.github.com/repos/tylermorrison00/sidedocks/zipball/main';
 let tokenPath = '';
 
 function isGithubHost(hostname) {
@@ -290,7 +290,7 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  win.webContents.once('did-finish-load', () => { updateBackgroundMaterial(); });
+  win.webContents.once('did-finish-load', () => { updateBackgroundMaterial(); }); win.webContents.once('did-finish-load', () => { if (pendingAuthUrl) { const u = pendingAuthUrl; pendingAuthUrl = null; handleAuthUrl(u); } });
   win.on('closed', () => { win = null; });
   launchAt = Date.now();
   startMousePoll();
@@ -300,13 +300,13 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
-    if (win) { try { win.show(); win.focus(); } catch {} }
+  app.on('second-instance', (event, argv) => {
+    if (win) { try { for (const a of (typeof argv !== 'undefined' ? argv : [])) { if (String(a).startsWith('sidedock://')) handleAuthUrl(a); } win.show(); win.focus(); } catch {} }
     else { try { createWindow(); } catch {} }
   });
 }
-app.whenReady().then(createWindow);
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+let pendingAuthUrl = null; function handleAuthUrl(url) { if (!url || !String(url).startsWith('sidedock://')) return; if (win && win.webContents) { try { win.webContents.send('sidedock-auth', url); return; } catch {} } pendingAuthUrl = url; } if (!app.isDefaultProtocolClient('sidedock')) { try { app.setAsDefaultProtocolClient('sidedock'); } catch {} } for (const a of process.argv.slice(1)) { if (String(a).startsWith('sidedock://')) pendingAuthUrl = a; } app.whenReady().then(createWindow);
+app.whenReady().then(createWindow); app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (!win) createWindow(); });
 
 ipcMain.handle('get-state', () => ({ mode, autoStart, theme, autoHide, hidden, panelOpen, hasToken: !!loadToken(), tools: loadTools() }));
@@ -487,7 +487,7 @@ ipcMain.handle('set-brightness', async (_e, level) => {
     brightnessProc = execFile('powershell', ['-NoProfile', '-NonInteractive', '-Command', `(Get-WmiObject -Namespace root/WMI -Class WmiMonitorBrightnessMethods).WmiSetBrightness(1, ${lvl})`], (err) => { brightnessProc = null; resolve({ ok: !err, level: lvl }); });
   });
 });
-ipcMain.handle('launch-tool', (_e, tool) => {
+ipcMain.handle('open-external', (_e, url) => { try { shell.openExternal(String(url)); } catch {} }); ipcMain.handle('launch-tool', (_e, tool) => {
   if (!tool || !tool.target) return;
   if (tool.target === 'todo' || tool.id === 'todo-list') { openTodoWindow(); return; }
   if (tool.kind === 'url') { shell.openExternal(tool.target); return; }
@@ -507,7 +507,7 @@ ipcMain.handle('do-update', async () => {
     // check GitHub API se karo, wo foran naya version deta hai.
     let remote;
     try {
-      const api = JSON.parse(await fetchText('https://api.github.com/repos/tylermorrison00/side-dock/contents/package.json', token));
+      const api = JSON.parse(await fetchText('https://api.github.com/repos/tylermorrison00/sidedocks/contents/package.json', token));
       remote = JSON.parse(Buffer.from(String(api.content || '').replace(/\n/g, ''), 'base64').toString('utf8'));
     } catch {
       remote = JSON.parse(await fetchText(UPDATE_RAW + '?t=' + Date.now(), token));
