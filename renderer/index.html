@@ -225,8 +225,113 @@
   .mobile-tab-btn span.ic {
     font-size: 18px;
   }
+  /* Mobile edge panel: thin strip + drag to open icon rail + All tools sheet (mobile only) */
+  #mobileNav {
+    display: none !important;
+  }
+  .dock {
+    padding: 16px !important;
+  }
+  body.mobile-edge .dock {
+    display: none !important;
+  }
+  body.mobile-edge.tool-open .dock {
+    display: flex !important;
+  }
+  body.mobile-edge #edgeGrab {
+    display: block;
+  }
+  body.mobile-edge #edgeScrim.show {
+    display: block;
+  }
+  body.mobile-edge #edgeRail {
+    display: flex;
+  }
+  body.mobile-edge #allToolsSheet.open {
+    display: flex;
+  }
+  #edgeGrab {
+    position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+    width: 38px; height: 140px; z-index: 2000; touch-action: none;
+  }
+  #edgeStrip {
+    position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+    width: 6px; height: 120px; background: var(--panel2);
+    border: 1px solid var(--line); border-right: 0; border-radius: 3px 0 0 3px;
+  }
+  #edgeScrim {
+    position: fixed; inset: 0; z-index: 1999; background: transparent;
+  }
+  #edgeRail {
+    position: fixed; right: 8px; top: 50%; transform: translate(130%, -50%);
+    width: 84px; height: min(82dvh, 500px); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.60);
+    flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px;
+    z-index: 2001; transition: transform .28s ease; overflow-y: auto; touch-action: none;
+  }
+  #edgeRail.open {
+    transform: translate(0, -50%);
+  }
+  #edgeRail.dragging {
+    transition: none;
+  }
+  .edge-rail-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: transparent; border: none; color: var(--muted);
+    font-size: 11px; font-weight: 600; cursor: pointer; padding: 6px 4px; border-radius: 12px; width: 100%;
+  }
+  .edge-rail-btn .eic {
+    width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center;
+    background: var(--panel2); border: 1px solid var(--line); font-size: 20px;
+  }
+  .edge-rail-btn.active {
+    color: var(--accent);
+  }
+  #edgeRailAllBtn {
+    margin-top: auto; width: 44px; height: 44px; border-radius: 50%;
+    background: var(--panel2); border: 1px solid var(--line); color: var(--text);
+    font-size: 22px; cursor: pointer; display: grid; place-items: center; flex-shrink: 0;
+  }
+  #allToolsSheet {
+    position: fixed; right: 102px; top: 50%; transform: translate(130%, -50%);
+    width: min(76vw, 320px); height: min(82dvh, 500px); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.60);
+    z-index: 2001; flex-direction: column; gap: 12px; padding: 14px;
+    transition: transform .28s ease; overflow-y: auto;
+  }
+  #allToolsSheet.open {
+    transform: translate(0, -50%);
+  }
+  #allToolsSheet .sheet-top {
+    display: flex; gap: 8px;
+  }
+  #allToolsSheet .sheet-top input {
+    flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--panel2); color: var(--text); outline: none; font-size: 14px;
+  }
+  #allToolsSheet .sheet-top button {
+    width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel2); color: var(--text); font-size: 18px; cursor: pointer; flex-shrink: 0;
+  }
+  #allToolsGrid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .sheet-tool {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: transparent; border: none; color: var(--muted);
+    font-size: 11px; font-weight: 600; cursor: pointer; padding: 6px 2px;
+  }
+  .sheet-tool .eic {
+    width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center;
+    background: var(--panel2); border: 1px solid var(--line); font-size: 22px;
+  }
 }
 #mobileNav {
+  display: none;
+}
+#edgeGrab, #edgeScrim, #edgeRail, #allToolsSheet {
   display: none;
 }
 .sync-indicator {
@@ -360,6 +465,26 @@
   <button class="mobile-tab-btn" data-tab="notes"><span class="ic">📄</span>Notes</button>
   <button class="mobile-tab-btn" data-tab="habit-tracker"><span class="ic">🔥</span>Habits</button>
   <button class="mobile-tab-btn" data-tab="settings"><span class="ic">☁️</span>Sync</button>
+</div>
+
+<!-- Mobile edge panel: thin strip + drag to open icon rail + All tools sheet -->
+<div id="edgeGrab"><div id="edgeStrip"></div></div>
+<div id="edgeScrim"></div>
+<div id="edgeRail">
+  <button class="edge-rail-btn" data-edge-tool="todo-list"><span class="eic">📝</span>Tasks</button>
+  <button class="edge-rail-btn" data-edge-tool="notes"><span class="eic">📄</span>Notes</button>
+  <button class="edge-rail-btn" data-edge-tool="habit-tracker"><span class="eic">🔥</span>Habits</button>
+  <button class="edge-rail-btn" data-edge-tool="sync"><span class="eic">☁️</span>Sync</button>
+  <button class="edge-rail-btn" data-edge-tool="settings"><span class="eic">⚙️</span>Settings</button>
+  <button id="edgeRailAllBtn" title="All tools">›</button>
+</div>
+<div id="allToolsSheet">
+  <div class="sheet-top">
+    <input id="allToolsSearch" type="search" placeholder="Search">
+    <button id="allToolsGear" title="Settings">⚙</button>
+  </div>
+  <div style="font-size:15px; font-weight:700;">All tools</div>
+  <div id="allToolsGrid"></div>
 </div>
 
 <script>
@@ -879,12 +1004,117 @@
     }
   };
 
-  // If on mobile screen, default to Tasks
-  if (window.innerWidth <= 650) {
+  // If on mobile screen, default to Tasks (not on the mobile edge panel — it starts closed)
+  if (window.innerWidth <= 650 && !window.matchMedia('(max-width: 650px) and (pointer: coarse)').matches) {
     setTimeout(() => {
       const todoTool = tools.find(t => t.id === 'todo-list') || tools[0];
       if (todoTool) showToolView(todoTool);
     }, 150);
+  }
+  // ---- Mobile edge panel (mobile only: thin strip + drag to open icon rail + All tools sheet) ----
+  const isMobileEdge = window.matchMedia('(max-width: 650px) and (pointer: coarse)').matches;
+  if (isMobileEdge) {
+    document.body.classList.add('mobile-edge');
+    const grab = document.getElementById('edgeGrab');
+    const rail = document.getElementById('edgeRail');
+    const sheet = document.getElementById('allToolsSheet');
+    const scrim = document.getElementById('edgeScrim');
+    const RAIL_W = 92;
+    let railOpen = false, sheetOpen = false, dragStartX = 0, dragDX = 0, dragging = false, dragMoved = false;
+    function showScrim(v) { scrim.classList.toggle('show', v); }
+    function openRail() { railOpen = true; rail.classList.add('open'); rail.style.transform = ''; showScrim(true); }
+    function closeRail() { railOpen = false; sheetOpen = false; rail.classList.remove('open'); rail.style.transform = ''; sheet.classList.remove('open'); showScrim(false); }
+    function openToolFull(tool) {
+      closeRail();
+      document.body.classList.add('tool-open');
+      if (tool) showToolView(tool); else showSettingsView();
+    }
+    function closeToolFull() { document.body.classList.remove('tool-open'); openRail(); }
+    grab.addEventListener('pointerdown', (e) => {
+      dragging = true; dragMoved = false; dragStartX = e.clientX; dragDX = 0;
+      try { grab.setPointerCapture(e.pointerId); } catch {}
+      rail.classList.add('dragging');
+    });
+    grab.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      dragDX = Math.min(0, e.clientX - dragStartX);
+      if (Math.abs(dragDX) > 6) dragMoved = true;
+      const p = Math.min(1, Math.abs(dragDX) / RAIL_W);
+      rail.style.transform = 'translate(' + ((1 - p) * 130) + '%, -50%)';
+    });
+    const endGrabDrag = () => {
+      if (!dragging) return;
+      dragging = false; rail.classList.remove('dragging');
+      if (dragMoved && Math.abs(dragDX) > RAIL_W * 0.3) { openRail(); }
+      else { rail.style.transform = ''; }
+    };
+    grab.addEventListener('pointerup', endGrabDrag);
+    grab.addEventListener('pointercancel', endGrabDrag);
+    rail.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      dragging = true; dragMoved = false; dragStartX = e.clientX; dragDX = 0;
+      try { rail.setPointerCapture(e.pointerId); } catch {}
+      rail.classList.add('dragging');
+    });
+    rail.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      dragDX = Math.max(0, e.clientX - dragStartX);
+      if (dragDX > 6) dragMoved = true;
+      const p = Math.min(1, dragDX / RAIL_W);
+      rail.style.transform = 'translate(' + (p * 130) + '%, -50%)';
+    });
+    const endRailDrag = () => {
+      if (!dragging) return;
+      dragging = false; rail.classList.remove('dragging');
+      if (dragMoved && dragDX > RAIL_W * 0.3) { closeRail(); } else { rail.style.transform = ''; }
+    };
+    rail.addEventListener('pointerup', endRailDrag);
+    rail.addEventListener('pointercancel', endRailDrag);
+    scrim.addEventListener('click', closeRail);
+    rail.querySelectorAll('[data-edge-tool]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const k = btn.dataset.edgeTool;
+        if (k === 'sync' || k === 'settings') {
+          openToolFull(null);
+          if (k === 'sync') { const ls = document.getElementById('syncLoginSection'); if (ls) setTimeout(() => ls.scrollIntoView({ behavior: 'smooth' }), 50); }
+          return;
+        }
+        const found = tools.find(t => t.id === k || t.target === k);
+        if (found) openToolFull(found);
+      });
+    });
+    const builtInTools = [
+      { id: 'todo-list', name: 'Tasks', icon: '📝' },
+      { id: 'notes', name: 'Notes', icon: '📄' },
+      { id: 'habit-tracker', name: 'Habits', icon: '🔥' },
+      { id: 'sync', name: 'Sync', icon: '☁️' },
+      { id: 'settings', name: 'Settings', icon: '⚙️' }
+    ];
+    function renderAllTools(filter) {
+      const grid = document.getElementById('allToolsGrid');
+      grid.innerHTML = '';
+      const q = (filter || '').toLowerCase();
+      const extra = tools.filter(t => !builtInTools.some(b => b.id === t.id)).map(t => ({ id: t.id, name: t.name, icon: t.icon || '◆', tool: t }));
+      const items = builtInTools.map(b => ({ ...b, tool: tools.find(t => t.id === b.id) || null })).concat(extra);
+      items.filter(it => !q || it.name.toLowerCase().includes(q)).forEach(it => {
+        const b = document.createElement('button');
+        b.className = 'sheet-tool';
+        b.innerHTML = '<span class="eic">' + it.icon + '</span>' + it.name;
+        b.addEventListener('click', () => {
+          if (it.id === 'sync' || it.id === 'settings') { openToolFull(null); return; }
+          if (it.tool) openToolFull(it.tool);
+        });
+        grid.appendChild(b);
+      });
+    }
+    document.getElementById('edgeRailAllBtn').addEventListener('click', () => {
+      sheetOpen = !sheetOpen;
+      if (sheetOpen) { renderAllTools(''); sheet.classList.add('open'); }
+      else { sheet.classList.remove('open'); }
+    });
+    document.getElementById('allToolsSearch').addEventListener('input', (e) => renderAllTools(e.target.value));
+    document.getElementById('allToolsGear').addEventListener('click', () => openToolFull(null));
+    document.getElementById('closePanelBtn').addEventListener('click', () => { closeToolFull(); });
   }
 </script>
 </body>
