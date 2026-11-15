@@ -27,6 +27,7 @@ import java.io.File
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var pendingAuthUrl: String? = null
+    private var pendingTool: String? = null
 
     inner class JsBridge {
         @JavascriptInterface
@@ -191,6 +192,7 @@ class MainActivity : AppCompatActivity() {
                         pendingAuthUrl = null
                         dispatchAuthCallback(authUrl)
                     }
+                    dispatchPendingTool()
                 }
             }
 
@@ -224,6 +226,7 @@ class MainActivity : AppCompatActivity() {
         })
 
         // Deep link launched the app (e.g. sidedock://auth-callback after Google login)
+        intent?.getStringExtra("open_tool")?.let { pendingTool = it }
         intent?.data?.toString()?.let { data ->
             if (data.startsWith("sidedock://")) {
                 pendingAuthUrl = data
@@ -233,8 +236,23 @@ class MainActivity : AppCompatActivity() {
         webView.loadUrl("file:///android_asset/renderer/index.html")
     }
 
+    // Edge tab rail asked the app to open a tool (or the All tools list).
+    private fun dispatchPendingTool() {
+        val tool = pendingTool ?: return
+        pendingTool = null
+        if (!::webView.isInitialized) return
+        webView.post {
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('sidedock-open-tool',{detail:${JSONObject.quote(tool)}}))",
+                null
+            )
+        }
+    }
+
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
+        intent?.getStringExtra("open_tool")?.let { pendingTool = it }
+        dispatchPendingTool()
         intent?.data?.toString()?.let { data ->
             if (data.startsWith("sidedock://")) {
                 handleAuthCallback(data)

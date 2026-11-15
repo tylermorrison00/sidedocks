@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
 import android.view.Gravity
@@ -16,20 +17,25 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.core.app.NotificationCompat
 
 // Floating edge tab shown over ALL apps (system overlay).
-// The tab itself is only a thin strip; dragging it left opens Side Dock.
-// Tap does nothing, same as the in-app strip. Started/stopped from
-// Settings ("Edge tab") and restarted on boot when it was left on.
+// Thin strip -> drag left -> icon rail (bar) floats over the current app.
+// Tap a rail icon to open that tool in the app; ">" opens the All tools list.
+// Tap does nothing on the strip; app icon click opens the app itself.
+// Started/stopped from Settings ("Edge tab") and restarted on boot when on.
 class EdgeTabService : Service() {
     private var windowManager: WindowManager? = null
-    private var tabView: View? = null
+    private var stripView: View? = null
+    private var railView: View? = null
+    private var scrimView: View? = null
 
     override fun onCreate() {
         super.onCreate()
         startForeground(NOTIF_ID, buildNotification())
-        showTab()
+        showStrip()
     }
 
     private fun buildNotification(): Notification {
@@ -52,23 +58,35 @@ class EdgeTabService : Service() {
             .build()
     }
 
-    private fun showTab() {
-        if (tabView != null) return
+    private fun overlayType(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+    }
+
+    private fun roundedBg(color: Int, radiusDp: Int, strokeColor: Int): GradientDrawable {
+        return GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(color)
+            cornerRadius = radiusDp.dpToPx().toFloat()
+            setStroke(1.dpToPx(), strokeColor)
+        }
+    }
+
+    private fun showStrip() {
+        if (stripView != null) return
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         // 38dp wide invisible grab area; the visible strip is 6dp at its right edge.
         val container = FrameLayout(this)
         val strip = View(this)
-        strip.setBackgroundColor(Color.parseColor("#1A2947"))
+        strip.setBackgroundColor(Color.parseColor("#00D4FF"))
         val stripParams = FrameLayout.LayoutParams(6.dpToPx(), 120.dpToPx()).apply {
             gravity = Gravity.END or Gravity.CENTER_VERTICAL
         }
         container.addView(strip, stripParams)
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else
-            @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
         val params = WindowManager.LayoutParams(
-            38.dpToPx(), 140.dpToPx(), type,
+            38.dpToPx(), 140.dpToPx(), overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
@@ -91,26 +109,160 @@ class EdgeTabService : Service() {
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (moved && dragDX < -60) {
-                        val open = Intent(this, MainActivity::class.java).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        startActivity(open)
-                    }
+                    if (moved && dragDX < -60) showRail()
                     true
                 }
                 else -> false
             }
         }
-        tabView = container
+        stripView = container
         windowManager?.addView(container, params)
+    }
+
+    private fun hideStrip() {
+        stripView?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
+        stripView = null
+    }
+
+    private fun showRail() {
+        hideStrip()
+        if (railView != null) return
+        val wm = windowManager ?: return
+        // Transparent full-screen scrim: tap outside closes the rail.
+        val scrim = View(this)
+        val scrimParams = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
+            overlayType(), WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
+        )
+        scrim.setOnClickListener { hideRail() }
+        scrimView = scrim
+        wm.addView(scrim, scrimParams)
+
+        val screenH = resources.displayMetrics.heightPixels
+        val railH = minOf((screenH * 0.82).toInt(), 500.dpToPx())
+        val rail = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(6.dpToPx(), 14.dpToPx(), 6.dpToPx(), 14.dpToPx())
+            background = roundedBg(Color.parseColor("#131E33"), 18, Color.parseColor("#24365A"))
+        }
+        val railParams = WindowManager.LayoutParams(
+            84.dpToPx(), railH, overlayType(),
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            x = 8.dpToPx()
+        }
+        val items = listOf(
+            Triple("📝", "Tasks", "todo-list"),
+            Triple("📄", "Notes", "notes"),
+            Triple("🔥", "Habits", "habit-tracker"),
+            Triple("☁️", "Sync", "sync"),
+            Triple("⚙️", "Settings", "settings")
+        )
+        items.forEach { (emoji, label, tool) ->
+            rail.addView(railButton(emoji, label) { openTool(tool) })
+        }
+        val spacer = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(1, 0, 1f)
+        }
+        rail.addView(spacer)
+        val allBtn = TextView(this).apply {
+            text = "›"
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#E8EEFC"))
+            background = roundedBg(Color.parseColor("#1A2947"), 22, Color.parseColor("#24365A"))
+            val s = 44.dpToPx()
+            layoutParams = LinearLayout.LayoutParams(s, s)
+            setOnClickListener { openTool("all-tools") }
+        }
+        rail.addView(allBtn)
+        // Drag the rail right to close it.
+        var rDownX = 0f
+        var rDX = 0f
+        var rMoved = false
+        rail.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    rDownX = event.rawX
+                    rDX = 0f
+                    rMoved = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    rDX = maxOf(0f, event.rawX - rDownX)
+                    if (rDX > 12) rMoved = true
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (rMoved && rDX > 60) hideRail()
+                    true
+                }
+                else -> false
+            }
+        }
+        railView = rail
+        wm.addView(rail, railParams)
+    }
+
+    private fun railButton(emoji: String, label: String, onClick: () -> Unit): View {
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(4.dpToPx(), 6.dpToPx(), 4.dpToPx(), 6.dpToPx())
+            isClickable = true
+            setOnClickListener { onClick() }
+        }
+        val icon = TextView(this).apply {
+            text = emoji
+            textSize = 20f
+            gravity = Gravity.CENTER
+            background = roundedBg(Color.parseColor("#1A2947"), 13, Color.parseColor("#24365A"))
+            val s = 44.dpToPx()
+            layoutParams = LinearLayout.LayoutParams(s, s)
+        }
+        val name = TextView(this).apply {
+            text = label
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor("#8A9BB8"))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+        col.addView(icon)
+        col.addView(name)
+        return col
+    }
+
+    private fun openTool(tool: String) {
+        hideRail()
+        val open = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra("open_tool", tool)
+        }
+        startActivity(open)
+    }
+
+    private fun hideRail() {
+        railView?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
+        railView = null
+        scrimView?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
+        scrimView = null
+        showStrip()
     }
 
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
-        tabView?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
-        tabView = null
+        stripView?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
+        stripView = null
+        railView?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
+        railView = null
+        scrimView?.let { try { windowManager?.removeView(it) } catch (_: Exception) {} }
+        scrimView = null
         super.onDestroy()
     }
 
