@@ -52,6 +52,31 @@
     async signInWithGoogle() {
       const sb = getClient();
       if (!sb) throw new Error('Supabase not loaded');
+      const isMobileApp = window.location.protocol === 'file:' || !!window.SideDockAndroid;
+      if (isMobileApp) {
+        // Google blocks OAuth inside an embedded WebView (disallowed_useragent),
+        // and file:// can never be a valid OAuth redirect (its origin is "null").
+        // So: get the sign-in URL without redirecting, open it in the system
+        // browser, and come back via the sidedock://auth-callback deep link
+        // (registered in AndroidManifest.xml). The Supabase project must have
+        // sidedock://auth-callback in Auth > URL Configuration > Redirect URLs.
+        const { data, error } = await sb.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: 'sidedock://auth-callback',
+            skipBrowserRedirect: true,
+            queryParams: { access_type: 'offline', prompt: 'consent' }
+          }
+        });
+        if (error) throw error;
+        if (!data || !data.url) throw new Error('Google login did not return a sign-in URL');
+        if (window.SideDockAndroid && window.SideDockAndroid.openExternal) {
+          window.SideDockAndroid.openExternal(data.url);
+        } else {
+          window.open(data.url, '_blank');
+        }
+        return data;
+      }
       const redirectTo = window.location.origin + window.location.pathname;
       const { data, error } = await sb.auth.signInWithOAuth({
         provider: 'google',
@@ -59,6 +84,36 @@
       });
       if (error) throw error;
       return data;
+    },
+
+    // Called when the app is reopened via sidedock://auth-callback after
+    // Google login in the system browser. Exchanges the returned code (PKCE)
+    // or tokens for a session.
+    async handleAuthCallback(url) {
+      const sb = getClient();
+      if (!sb || !url) return false;
+      try {
+        const hash = (url.split('#')[1] || '');
+        const query = (url.split('?')[1] || '').split('#')[0];
+        const params = new URLSearchParams(hash || query);
+        const code = params.get('code');
+        if (code) {
+          const { error } = await sb.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          return true;
+        }
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+        if (access_token && refresh_token) {
+          const { error } = await sb.auth.setSession({ access_token, refresh_token });
+          if (error) throw error;
+          return true;
+        }
+        return false;
+      } catch (e) {
+        console.warn('Auth callback failed:', e);
+        return false;
+      }
     },
 
     async signInWithEmail(email, password) {
@@ -258,6 +313,13 @@
   };
 
   window.SyncEngine = SyncEngine;
+
+  // Deep-link return from the system-browser Google login (MainActivity
+  // dispatches a 'sidedock-auth' event with the callback URL).
+  window.addEventListener('sidedock-auth', (e) => {
+    SyncEngine.handleAuthCallback(e.detail);
+  });
+  window.__sidedockAuthCallback = (url) => SyncEngine.handleAuthCallback(url);
 
   // Auto-init on page load
   window.addEventListener('DOMContentLoaded', () => {
