@@ -57,7 +57,6 @@
       return t;
     },
     setAutostart: async () => false,
-    doUpdate: async () => ({ ok: false, message: 'App updates are managed through APK downloads.' }),
     addTool: async (tool) => {
       const tools = getLocal('tools', defaultTools);
       tools.push({ id: Date.now().toString(), name: String(tool.name || 'Tool').slice(0, 40), icon: String(tool.icon || '◆').slice(0, 4), target: String(tool.target || ''), kind: tool.kind === 'app' ? 'app' : 'url' });
@@ -198,5 +197,39 @@
     // Screen controls fallback for mobile
     getExtraDim: async () => ({ level: 0 }),
     setExtraDim: async () => ({ level: 0 })
+  };
+
+  // ---- Mobile in-app update (real check, not a dead message) ----
+  // The GitHub release publishes version.json next to Side.Dock.apk.
+  // versionCode rises on every CI build, so Android accepts the new APK
+  // over the installed one (same versionCode used to block the install).
+  const UPDATE_CHECK_URL = 'https://github.com/tylermorrison00/sidedocks/releases/download/mobile-v1.0.0/version.json';
+  const APK_DOWNLOAD_URL = 'https://github.com/tylermorrison00/sidedocks/releases/download/mobile-v1.0.0/Side.Dock.apk';
+  window.sideDock.doUpdate = async () => {
+    try {
+      const res = await fetch(UPDATE_CHECK_URL + '?v=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) {
+        return { ok: false, message: 'Update check failed. Download the latest APK from the website.' };
+      }
+      const latest = await res.json();
+      const current = (window.SideDockAndroid && window.SideDockAndroid.getVersionCode)
+        ? window.SideDockAndroid.getVersionCode()
+        : 0;
+      if (latest.versionCode && current && latest.versionCode <= current) {
+        return { ok: true, message: 'App already up to date.' };
+      }
+      if (window.SideDockAndroid && window.SideDockAndroid.downloadApk) {
+        if (window.SideDockAndroid.canInstallPackages && !window.SideDockAndroid.canInstallPackages()) {
+          window.SideDockAndroid.openInstallSettings();
+          return { ok: false, message: 'Allow "Install unknown apps" for Side Dock, then tap Update again.' };
+        }
+        window.SideDockAndroid.downloadApk(APK_DOWNLOAD_URL);
+        return { ok: true, message: 'Downloading latest APK... install it when asked.' };
+      }
+      window.open(APK_DOWNLOAD_URL, '_blank');
+      return { ok: true, message: 'Latest APK opened in browser — install it when the download finishes.' };
+    } catch (e) {
+      return { ok: false, message: 'No internet / update check failed. Download the latest APK from the website.' };
+    }
   };
 })();
